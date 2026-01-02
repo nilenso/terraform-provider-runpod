@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -122,27 +123,56 @@ func (c *Client) Ping() error {
 
 // Pod represents a RunPod pod
 type Pod struct {
-	ID                string    `json:"id"`
-	Name              string    `json:"name"`
-	ImageName         string    `json:"imageName"`
-	GpuTypeID         string    `json:"gpuTypeId"`
-	GpuCount          int       `json:"gpuCount"`
-	VolumeInGb        int       `json:"volumeInGb"`
-	ContainerDiskInGb int       `json:"containerDiskInGb"`
-	DesiredStatus     string    `json:"desiredStatus"`
-	CloudType         string    `json:"cloudType"`
-	Ports             string    `json:"ports"`
-	VolumeMountPath   string    `json:"volumeMountPath"`
-	DockerArgs        string    `json:"dockerArgs"`
-	Env               []EnvVar  `json:"env"`
-	MachineID         string    `json:"machineId"`
-	Machine           *Machine  `json:"machine"`
-	Runtime           *Runtime  `json:"runtime"`
+	ID                string   `json:"id"`
+	Name              string   `json:"name"`
+	ImageName         string   `json:"imageName"`
+	GpuTypeID         string   `json:"gpuTypeId"`
+	GpuCount          int      `json:"gpuCount"`
+	VolumeInGb        int      `json:"volumeInGb"`
+	ContainerDiskInGb int      `json:"containerDiskInGb"`
+	DesiredStatus     string   `json:"desiredStatus"`
+	CloudType         string   `json:"cloudType"`
+	Ports             string   `json:"ports"`
+	VolumeMountPath   string   `json:"volumeMountPath"`
+	DockerArgs        string   `json:"dockerArgs"`
+	Env               EnvVars  `json:"env"`
+	MachineID         string   `json:"machineId"`
+	Machine           *Machine `json:"machine"`
+	Runtime           *Runtime `json:"runtime"`
 }
 
 type EnvVar struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
+}
+
+// EnvVars is a slice of EnvVar that handles custom JSON unmarshalling
+// The API returns env as string array like ["KEY=value"] but we want []EnvVar
+type EnvVars []EnvVar
+
+func (e *EnvVars) UnmarshalJSON(data []byte) error {
+	// Try to unmarshal as string array first (API response format)
+	var stringArray []string
+	if err := json.Unmarshal(data, &stringArray); err == nil {
+		*e = make(EnvVars, 0, len(stringArray))
+		for _, s := range stringArray {
+			parts := strings.SplitN(s, "=", 2)
+			if len(parts) == 2 {
+				*e = append(*e, EnvVar{Key: parts[0], Value: parts[1]})
+			} else if len(parts) == 1 {
+				*e = append(*e, EnvVar{Key: parts[0], Value: ""})
+			}
+		}
+		return nil
+	}
+
+	// Fall back to unmarshalling as []EnvVar (for other cases)
+	var envVars []EnvVar
+	if err := json.Unmarshal(data, &envVars); err != nil {
+		return err
+	}
+	*e = envVars
+	return nil
 }
 
 type Machine struct {
@@ -216,9 +246,10 @@ func (c *Client) CreatePod(input *PodInput) (*Pod, error) {
 		"containerDiskInGb": input.ContainerDiskInGb,
 	}
 
-	// Handle GPU type - prefer gpuTypeIds (list) over gpuTypeId (single)
+	// Handle GPU type - API expects gpuTypeId (singular string)
+	// If gpuTypeIDs is provided, use the first one
 	if len(input.GpuTypeIDs) > 0 {
-		inputMap["gpuTypeIds"] = input.GpuTypeIDs
+		inputMap["gpuTypeId"] = input.GpuTypeIDs[0]
 	} else if input.GpuTypeID != "" {
 		inputMap["gpuTypeId"] = input.GpuTypeID
 	}
@@ -468,8 +499,8 @@ func (c *Client) ListGpuTypes() ([]GpuType, error) {
 
 // GetGpuType retrieves a specific GPU type by ID
 func (c *Client) GetGpuType(id string) (*GpuType, error) {
-	query := `query GpuTypes($input: GpuTypeInput!) {
-		gpuTypes(input: $input) {
+	query := `query GpuTypes {
+		gpuTypes(input: {id: "` + id + `"}) {
 			id
 			displayName
 			memoryInGb
@@ -478,11 +509,7 @@ func (c *Client) GetGpuType(id string) (*GpuType, error) {
 		}
 	}`
 
-	variables := map[string]interface{}{
-		"input": map[string]string{
-			"id": id,
-		},
-	}
+	variables := map[string]interface{}{}
 
 	data, err := c.doRequest(query, variables)
 	if err != nil {

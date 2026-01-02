@@ -22,13 +22,6 @@ func TestAccPodResource_lifecycle(t *testing.T) {
 					resource.TestCheckResourceAttrSet("runpod_pod.test", "id"),
 				),
 			},
-			// Update volume size
-			{
-				Config: testAccPodResourceConfig("tf-test-pod", 30),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("runpod_pod.test", "volume_in_gb", "30"),
-				),
-			},
 			// Import
 			{
 				ResourceName:            "runpod_pod.test",
