@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -41,7 +40,6 @@ type PodResourceModel struct {
 	Name              types.String `tfsdk:"name"`
 	ImageName         types.String `tfsdk:"image_name"`
 	GpuTypeID         types.String `tfsdk:"gpu_type_id"`
-	GpuTypeIDs        types.List   `tfsdk:"gpu_type_ids"`
 	GpuCount          types.Int64  `tfsdk:"gpu_count"`
 	VolumeInGb        types.Int64  `tfsdk:"volume_in_gb"`
 	ContainerDiskInGb types.Int64  `tfsdk:"container_disk_in_gb"`
@@ -88,23 +86,10 @@ func (r *PodResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				},
 			},
 			"gpu_type_id": schema.StringAttribute{
-				Description: "The ID of the GPU type to use (e.g., 'NVIDIA RTX A6000'). Use this OR gpu_type_ids, not both.",
-				Optional:    true,
+				Description: "The ID of the GPU type to use (e.g., 'NVIDIA RTX A6000').",
+				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
-					stringplanmodifier.UseStateForUnknown(),
-				},
-				Validators: []validator.String{
-					stringvalidator.ConflictsWith(path.MatchRoot("gpu_type_ids")),
-				},
-			},
-			"gpu_type_ids": schema.ListAttribute{
-				Description: "List of GPU type IDs to choose from (RunPod will select an available one). Use this OR gpu_type_id, not both.",
-				Optional:    true,
-				ElementType: types.StringType,
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.RequiresReplace(),
-					listplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"gpu_count": schema.Int64Attribute{
@@ -280,18 +265,8 @@ func (r *PodResource) Create(ctx context.Context, req resource.CreateRequest, re
 		ContainerDiskInGb: int(data.ContainerDiskInGb.ValueInt64()),
 	}
 
-	// Handle GPU type(s)
-	if !data.GpuTypeID.IsNull() && data.GpuTypeID.ValueString() != "" {
-		input.GpuTypeID = data.GpuTypeID.ValueString()
-	}
-	if !data.GpuTypeIDs.IsNull() {
-		var gpuTypeIDs []string
-		resp.Diagnostics.Append(data.GpuTypeIDs.ElementsAs(ctx, &gpuTypeIDs, false)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		input.GpuTypeIDs = gpuTypeIDs
-	}
+	// Set GPU type
+	input.GpuTypeID = data.GpuTypeID.ValueString()
 
 	if !data.CloudType.IsNull() {
 		input.CloudType = data.CloudType.ValueString()
@@ -382,6 +357,7 @@ func (r *PodResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	// Update state from API response
 	data.Name = types.StringValue(pod.Name)
 	data.ImageName = types.StringValue(pod.ImageName)
+	// Note: gpu_type_id is not returned by the API, so we preserve the state value
 	data.GpuCount = types.Int64Value(int64(pod.GpuCount))
 	data.VolumeInGb = types.Int64Value(int64(pod.VolumeInGb))
 	data.ContainerDiskInGb = types.Int64Value(int64(pod.ContainerDiskInGb))

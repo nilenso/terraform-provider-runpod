@@ -27,7 +27,7 @@ func TestAccPodResource_lifecycle(t *testing.T) {
 				ResourceName:            "runpod_pod.test",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"gpu_type_ids", "cloud_type", "env", "support_public_ip", "start_ssh", "min_vcpu_count", "min_memory_in_gb"},
+				ImportStateVerifyIgnore: []string{"gpu_type_id", "cloud_type", "env", "support_public_ip", "start_ssh", "min_vcpu_count", "min_memory_in_gb"},
 			},
 			// Delete happens automatically
 		},
@@ -39,7 +39,7 @@ func testAccPodResourceConfig(name string, volumeGb int) string {
 resource "runpod_pod" "test" {
   name               = %[1]q
   image_name         = "runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04"
-  gpu_type_ids       = ["NVIDIA RTX A4000"]
+  gpu_type_id        = "NVIDIA RTX A4000"
   gpu_count          = 1
   volume_in_gb       = %[2]d
   container_disk_in_gb = 20
@@ -69,7 +69,7 @@ func testAccPodResourceConfigWithEnv() string {
 resource "runpod_pod" "test_env" {
   name               = "tf-test-pod-env"
   image_name         = "runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04"
-  gpu_type_ids       = ["NVIDIA RTX A4000"]
+  gpu_type_id        = "NVIDIA RTX A4000"
   gpu_count          = 1
   volume_in_gb       = 20
   container_disk_in_gb = 20

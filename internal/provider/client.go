@@ -194,11 +194,10 @@ type Port struct {
 
 // PodInput represents the input for creating a pod
 type PodInput struct {
-	Name              string   `json:"name"`
-	ImageName         string   `json:"imageName"`
-	GpuTypeID         string   `json:"gpuTypeId,omitempty"`
-	GpuTypeIDs        []string `json:"gpuTypeIds,omitempty"`
-	GpuCount          int      `json:"gpuCount"`
+	Name              string `json:"name"`
+	ImageName         string `json:"imageName"`
+	GpuTypeID         string `json:"gpuTypeId"`
+	GpuCount          int    `json:"gpuCount"`
 	VolumeInGb        int      `json:"volumeInGb"`
 	ContainerDiskInGb int      `json:"containerDiskInGb"`
 	CloudType         string   `json:"cloudType,omitempty"`
@@ -246,11 +245,8 @@ func (c *Client) CreatePod(input *PodInput) (*Pod, error) {
 		"containerDiskInGb": input.ContainerDiskInGb,
 	}
 
-	// Handle GPU type - API expects gpuTypeId (singular string)
-	// If gpuTypeIDs is provided, use the first one
-	if len(input.GpuTypeIDs) > 0 {
-		inputMap["gpuTypeId"] = input.GpuTypeIDs[0]
-	} else if input.GpuTypeID != "" {
+	// Set GPU type
+	if input.GpuTypeID != "" {
 		inputMap["gpuTypeId"] = input.GpuTypeID
 	}
 

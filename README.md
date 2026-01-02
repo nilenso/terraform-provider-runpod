@@ -9,7 +9,7 @@ A Terraform provider for managing [RunPod](https://www.runpod.io/) GPU cloud res
 
 - **Pod Management**: Create, update, and delete GPU pods
 - **GPU Type Discovery**: Query available GPU types and their specifications
-- **Flexible GPU Selection**: Specify a single GPU type or a list of acceptable types
+- **GPU Type Selection**: Specify the GPU type for your pod
 
 ## Requirements
 
@@ -86,9 +86,7 @@ resource "runpod_pod" "example" {
   name       = "my-gpu-pod"
   image_name = "runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04"
   
-  # Specify acceptable GPU types (RunPod will pick an available one)
-  gpu_type_ids = ["NVIDIA RTX A4000", "NVIDIA RTX A5000"]
-  
+  gpu_type_id        = "NVIDIA RTX A4000"
   gpu_count          = 1
   volume_in_gb       = 40
   container_disk_in_gb = 20
@@ -121,8 +119,7 @@ Manages a RunPod GPU pod.
 |-----------|------|----------|-------------|
 | `name` | string | Yes | The name of the pod |
 | `image_name` | string | Yes | Docker image to use |
-| `gpu_type_id` | string | No* | Single GPU type ID |
-| `gpu_type_ids` | list(string) | No* | List of acceptable GPU type IDs |
+| `gpu_type_id` | string | Yes | GPU type ID (e.g., "NVIDIA RTX A4000") |
 | `gpu_count` | number | No | Number of GPUs (default: 1) |
 | `volume_in_gb` | number | No | Persistent volume size in GB (default: 0) |
 | `container_disk_in_gb` | number | No | Container disk size in GB (default: 20) |
@@ -138,8 +135,6 @@ Manages a RunPod GPU pod.
 | `data_center_id` | string | No | Specific data center |
 | `support_public_ip` | bool | No | Support public IP (default: true) |
 | `start_ssh` | bool | No | Start SSH service (default: true) |
-
-*Note: Use either `gpu_type_id` OR `gpu_type_ids`, not both.
 
 #### Attributes (Read-Only)
 
