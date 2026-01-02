@@ -1,0 +1,66 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Run unit tests
+        run: go test -v ./... -short
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+  # Acceptance tests - only run on main after merge
+  # PRs are validated by build+lint; acceptance tests run post-merge
+  # For fork PRs, GitHub requires maintainer approval before any workflow runs
+  acceptance:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build, lint]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Run acceptance tests
+        env:
+          TF_ACC: "1"
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+        run: go test -v ./internal/provider -timeout 30m -p 1 -parallel 1
+        if: ${{ env.RUNPOD_API_KEY != '' }}
