@@ -1,5 +1,8 @@
 # Terraform Provider for RunPod
 
+[![Tests](https://github.com/nilenso/terraform-provider-runpod/actions/workflows/test.yml/badge.svg)](https://github.com/nilenso/terraform-provider-runpod/actions/workflows/test.yml)
+[![Release](https://github.com/nilenso/terraform-provider-runpod/actions/workflows/release.yml/badge.svg)](https://github.com/nilenso/terraform-provider-runpod/actions/workflows/release.yml)
+
 A Terraform provider for managing [RunPod](https://www.runpod.io/) GPU cloud resources.
 
 ## Features
