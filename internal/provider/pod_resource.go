@@ -357,7 +357,9 @@ func (r *PodResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	// Update state from API response
 	data.Name = types.StringValue(pod.Name)
 	data.ImageName = types.StringValue(pod.ImageName)
-	// Note: gpu_type_id is not returned by the API, so we preserve the state value
+	if pod.Machine != nil && pod.Machine.GpuTypeID != "" {
+		data.GpuTypeID = types.StringValue(pod.Machine.GpuTypeID)
+	}
 	data.GpuCount = types.Int64Value(int64(pod.GpuCount))
 	data.VolumeInGb = types.Int64Value(int64(pod.VolumeInGb))
 	data.ContainerDiskInGb = types.Int64Value(int64(pod.ContainerDiskInGb))

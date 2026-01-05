@@ -177,6 +177,7 @@ func (e *EnvVars) UnmarshalJSON(data []byte) error {
 
 type Machine struct {
 	PodHostID string `json:"podHostId"`
+	GpuTypeID string `json:"gpuTypeId"`
 }
 
 type Runtime struct {
@@ -332,6 +333,7 @@ func (c *Client) GetPod(id string) (*Pod, error) {
 			machineId
 			machine {
 				podHostId
+				gpuTypeId
 			}
 			runtime {
 				uptimeInSeconds
