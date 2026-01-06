@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -202,12 +203,18 @@ func (r *PodResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"start_ssh": schema.BoolAttribute{
 				Description: "Whether to start SSH service.",
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"machine_id": schema.StringAttribute{
 				Description: "The ID of the machine the pod is running on.",
@@ -342,10 +349,14 @@ func (r *PodResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		return
 	}
 
+	tflog.Debug(ctx, "Reading pod", map[string]interface{}{"id": data.ID.ValueString()})
+
 	pod, err := r.client.GetPod(data.ID.ValueString())
 	if err != nil {
+		tflog.Error(ctx, "Error reading pod", map[string]interface{}{"id": data.ID.ValueString(), "error": err.Error()})
 		// Handle deleted resources gracefully
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "Pod not found") {
+			tflog.Warn(ctx, "Pod not found, removing from state", map[string]interface{}{"id": data.ID.ValueString()})
 			resp.State.RemoveResource(ctx)
 			return
 		}
@@ -354,12 +365,15 @@ func (r *PodResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		return
 	}
 
-	// Update state from API response
+	// Update state from API response - only update fields that the API returns
+	// Preserve existing state values for fields the API doesn't return
 	data.Name = types.StringValue(pod.Name)
 	data.ImageName = types.StringValue(pod.ImageName)
 	if pod.Machine != nil && pod.Machine.GpuTypeID != "" {
 		data.GpuTypeID = types.StringValue(pod.Machine.GpuTypeID)
 	}
+	// If API doesn't return GpuTypeID, preserve existing state value (don't overwrite)
+
 	data.GpuCount = types.Int64Value(int64(pod.GpuCount))
 	data.VolumeInGb = types.Int64Value(int64(pod.VolumeInGb))
 	data.ContainerDiskInGb = types.Int64Value(int64(pod.ContainerDiskInGb))
@@ -380,7 +394,18 @@ func (r *PodResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		data.PodHostID = types.StringValue(pod.Machine.PodHostID)
 	}
 
-	// Handle cloud_type - preserve state since API doesn't return it
+	// The following fields are not returned by the API, so preserve state values:
+	// - CloudType: already preserved from state (loaded above)
+	// - SupportPublicIP: already preserved from state (loaded above)
+	// - StartSSH: already preserved from state (loaded above)
+	// - Env: already preserved from state (loaded above)
+	// - MinVcpuCount: already preserved from state (loaded above)
+	// - MinMemoryInGb: already preserved from state (loaded above)
+	// - NetworkVolumeID: already preserved from state (loaded above)
+	// - TemplateID: already preserved from state (loaded above)
+	// - DataCenterID: already preserved from state (loaded above)
+
+	// Handle cloud_type - set default if not in state
 	if data.CloudType.IsNull() || data.CloudType.IsUnknown() {
 		data.CloudType = types.StringValue("ALL")
 	}
